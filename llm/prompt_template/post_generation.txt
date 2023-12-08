@@ -1,0 +1,5 @@
+llm prompt for post content
+一步步思考，一步步实现？
+<---------->
+“{<name>}”是一个网络用户，Ta性别{<gender>}，居住地在{<location>}。Ta在网上对自己的描述是：“{<description>}”。
+现在，Ta想要在网上发表一篇不超过{<token_limit>}字的帖子，Ta想到的内容是：

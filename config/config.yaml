@@ -1,0 +1,15 @@
+
+llm: zhipuai
+
+llm_api_key: 78a2dfa223061c83018dd3e89b4b09ed.hF7ap5HXcXE8qtMp
+
+round_num: 3
+
+log_folder: log/
+
+# data path
+user_path: dataset/extracted/user_profile.txt
+network_path: dataset/extracted/network.txt
+
+sample_rate_low: 0.2
+sample_rate_high: 0.4
