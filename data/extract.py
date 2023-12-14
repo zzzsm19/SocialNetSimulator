@@ -87,7 +87,7 @@ def get_uids():
     return uid_list
 
 
-def count_network(followee_lines):
+def count_network(follower_lines):
     """
     Get the sub network of users in user_list.
     The format of network.txt is n * n zero-one matrix, where n is the number of users in user_list.
@@ -100,16 +100,16 @@ def count_network(followee_lines):
     M = 0
     follow_map = np.array([0] * N * N).reshape(N, N)
     for i in tqdm(range(N)):
-        followee_line = followee_lines[user_list[i]].strip().split('\t')
-        followee_num = int(followee_line[1])
-        # follower_line = follower_lines[nodes[i]].strip().split('\t')
-        # follower_num = int(follower_line[1])
-        for j in range(2, 2 * followee_num + 2, 2):
-            followee = int(followee_line[j])
-            if followee in user_set:
-                follow_map[i][user_list.index(followee)] = 1
+        # followee_line = followee_lines[user_list[i]].strip().split('\t')
+        # followee_num = int(followee_line[1])
+        follower_line = follower_lines[user_list[i]].strip().split('\t')
+        follower_num = int(follower_line[1])
+        for j in range(2, 2 * follower_num + 2, 2):
+            follower = int(follower_line[j])
+            if follower in user_set:
+                follow_map[i][user_list.index(follower)] = 1
                 M += 1
-    with open('../dataset/extracted/network.txt', 'w') as f:
+    with open('../dataset/extracted/follower_network.txt', 'w') as f:
         f.write('{} {}\n'.format(N, M))
         f.write(' '.join([str(uid_list[_]) for _ in user_list]) + '\n')
         for i in tqdm(range(N)):
@@ -151,7 +151,7 @@ def main():
     # seeds = set(random.sample(range(N), K))
     seeds = {1423311} # one seed for test
     extract_sub_network(seeds, L, followee_lines, follower_lines)
-    count_network(followee_lines)
+    count_network(follower_lines)
     count_user_profile()
 
 

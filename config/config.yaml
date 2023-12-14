@@ -1,15 +1,21 @@
 
-llm: zhipuai
+# llm
+llm: chatglm3
+zhipuai_api_key: 78a2dfa223061c83018dd3e89b4b09ed.hF7ap5HXcXE8qtMp
+llama2_model_path: /data1/xubingbing/LLM/LLM-Project/chinese-llama-2-7b-hf
+chatglm3_model_path: /dat1/xubingbing/LLM/chatglm3-6b
 
-llm_api_key: 78a2dfa223061c83018dd3e89b4b09ed.hF7ap5HXcXE8qtMp
+# data
+user_path: dataset/extracted/user_profile.txt
+network_path: dataset/extracted/follower_network.txt
 
-round_num: 3
+# simulator
+round_num: 2
+interval: 8h
+sample_rate_low: 0.1
+sample_rate_high: 0.1
+
+# agent
+reflection_thershold: 30
 
 log_folder: log/
-
-# data path
-user_path: dataset/extracted/user_profile.txt
-network_path: dataset/extracted/network.txt
-
-sample_rate_low: 0.2
-sample_rate_high: 0.4

@@ -1,8 +1,9 @@
 """
 Import the Data class and use it to load data.
 """
-
 import logging
+
+Logger = logging.getLogger("MyLogger")
 
 class Data:
     def __init__(self, config):
@@ -36,12 +37,12 @@ class Data:
                 "description": lines[i * 15 + 13].strip(),
             }
             self.users.append(user)
-            logging.debug(user)
-        logging.info("load {} users".format(len(self.users)))
+            # Logger.debug(user)
+        Logger.info("load {} users".format(len(self.users)))
     
     def load_network(self):
         """
-        load user follow network from network path
+        load user follower network from follower network path
         """
         with open(self.network_path, 'r') as f:
             [node_num, edge_num] = [int(_) for _ in f.readline().strip().split()]
@@ -49,4 +50,4 @@ class Data:
             lines = [line.strip().split() for line in f.readlines()]
         for i in range(len(uids)):
             self.network[uids[i]] = [uids[j] for j in range(len(lines[i])) if lines[i][j] == '1']
-        logging.info("network contains {} nodes and {} edges".format(node_num, edge_num))
+        Logger.info("network contains {} nodes and {} edges".format(node_num, edge_num))

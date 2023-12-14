@@ -2,6 +2,7 @@ import json
 import logging
 import numpy as np
 from datetime import datetime
+from sklearn.metrics.pairwise import cosine_similarity
 
 from llm.llm import LLM
 from llm.prompt import get_prompt
@@ -30,7 +31,7 @@ class SocialNetAgent:
         logger.debug("Generate post Prompt: " + prompt)
         response = self.llm.invoke(prompt)
         post = self.llm.parse_response(response)
-        observation = "我在社交平台上发布了一篇文章，文章内容是：" + post # what idea driving the post generation  todo
+        observation = "我在社交平台上发表了一篇文章，文章内容是：" + post
         self.add_to_memory(observation, cur_time)
         return post
 
@@ -48,18 +49,13 @@ class SocialNetAgent:
         result = self.llm.invoke(prompt)
         # parse the result of llm
         if "不感兴趣" in result:
-            observation = "我阅读了一篇来自我的关注者——" + msg["post_author"] + "的文章。" \
-                        "文章的内容是：" + msg["post_content"]
-            self.add_to_memory(observation, cur_time)
             return {
                 "follow": False,
                 "repost": False
             }
         else:
-            observation = "我阅读了一篇来自我的关注者——" + msg["post_author"] + "的文章。" \
+            observation = "我阅读了一篇来自" + msg["post_author"] + "的文章。" \
                             "我对这篇文章很感兴趣，文章的内容是：" + msg["post_content"]
-            if "转发" in result:
-                observation += "\n我转发了这篇文章。" # 转发配文  todo
             self.add_to_memory(observation, cur_time)
             react = {
                 "follow": "关注" in result,

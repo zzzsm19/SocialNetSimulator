@@ -1,17 +1,11 @@
-dataset/diffusion/
-dataset/graph_170w_1month/
-dataset/retweetWithContent/
-dataset/retweetWithoutContent/
-dataset/root_content/
-dataset/topic-100/
-dataset/userProfile/
-dataset/weibo_network/
-dataset/weibocontents/
+dataset/*
+!dataset/extracted/
+!dataset/uidlist.txt
 
-.ipynb
+*.ipynb
 .ipynb_checkpoints/
 
-.env
-/env
+*.env
+env/
 
 **/__pycache__/

@@ -1,6 +1,14 @@
-import zhipuai
+import torch
+import numpy as np
 import logging
+import zhipuai
+import openai
+from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM, pipeline
+
 zhipuai.api_key = "78a2dfa223061c83018dd3e89b4b09ed.hF7ap5HXcXE8qtMp"
+
+logger = logging.getLogger("MyLogger")
+
 
 class LLM():
     def __init__(self):
@@ -12,7 +20,7 @@ class LLM():
     def async_invoke(self, prompt):
         raise NotImplementedError
     
-    def embedding_invoke(self, text):
+    def embedding_invoke(self, text) -> np.ndarray:
         raise NotImplementedError
     
     def embedding_async_invoke(self, text):
@@ -93,7 +101,7 @@ class ZhipuAi(LLM):
             }
         }
         try:
-            logging.debug(response)
+            logger.debug(response)
             if response["code"] != 200:
                 logging.error("Error in invoking LLM: " + response["msg"])
                 return None
@@ -125,3 +133,85 @@ class ZhipuAi(LLM):
             return None
 
 
+class Llama2(LLM):
+    def __init__(self, path):
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.model = AutoModelForCausalLM.from_pretrained(path, device_map='auto')
+        self.tokenizer = AutoTokenizer.from_pretrained(path, device_map='auto')
+        self.tokenizer.pad_token = self.tokenizer.eos_token
+
+    def invoke(self, prompt):
+        #print(model)
+        #model = AutoModelForCausalLM.from_pretrained('FlagAlpha/Atom-7B',device_map='auto',torch_dtype=torch.float16,load_in_8bit=True)
+        #model =model.eval()
+        #tokenizer = AutoTokenizer.from_pretrained('FlagAlpha/Atom-7B',use_fast=False)
+        prompt = "<s>Human:" + prompt + "</s>\n<s>Assistant:"
+        input_ids = self.tokenizer([prompt], return_tensors="pt").input_ids
+        # input_ids = self.tokenizer([prompt], return_tensors="pt")
+        #print(input_ids)
+        generate_input = {
+            "input_ids": input_ids,
+            "max_new_tokens": 512,
+            "do_sample": True,
+            "top_k": 50,
+            "top_p": 0.95,
+            "temperature": 0.3,
+            "repetition_penalty": 1.3,
+            "eos_token_id": self.tokenizer.eos_token_id,
+            "bos_token_id": self.tokenizer.bos_token_id,
+            "pad_token_id": self.tokenizer.pad_token_id
+        }
+        #print(model)
+        generate_ids  = self.model.generate(**generate_input)
+        result = self.tokenizer.decode(generate_ids[0])
+        return self.parse_response(result)
+
+    def batch_invoke(self, prompts):
+        # input_ids = self.tokenizer(prompts, return_tensors="pt").input_ids.to('cuda')
+        input_ids = self.tokenizer(prompts, return_tensors="pt")
+        generate_input = {
+            "input_ids": input_ids,
+            "max_new_tokens": 512,
+            "do_sample": True,
+            "top_k": 50,
+            "top_p": 0.95,
+            "temperature": 0.3,
+            "repetition_penalty": 1.3,
+            "eos_token_id": self.tokenizer.eos_token_id,
+            "bos_token_id": self.tokenizer.bos_token_id,
+            "pad_token_id": self.tokenizer.pad_token_id
+        }
+        generate_ids  = self.model.generate(**generate_input)
+        result = self.tokenizer.decode(generate_ids[0])
+        print(result)
+        return self.parse_response(result)
+
+    def embedding_invoke(self, text) -> np.ndarray:
+        input_ids = self.tokenizer(text, return_tensors="pt")
+        last_hidden_state = self.model(**input_ids, output_hidden_states=True).hidden_states[-1]
+        weights_for_non_padding = input_ids.attention_mask * torch.arange(start=1, end=last_hidden_state.shape[1] + 1).unsqueeze(0)
+
+        sum_embeddings = torch.sum(last_hidden_state * weights_for_non_padding.unsqueeze(-1), dim=1)
+        num_of_none_padding_tokens = torch.sum(weights_for_non_padding, dim=-1).unsqueeze(-1)
+        sentence_embeddings = sum_embeddings / num_of_none_padding_tokens
+
+        print(sentence_embeddings.shape)
+        return sentence_embeddings[0].detach().numpy()
+
+    def parse_response(self, response):
+        return response
+
+
+class ChatGlm3(LLM):
+    def __init__(self, path):
+        self.tokenizer = AutoTokenizer.from_pretrained(path, device_map='auto', trust_remote_code=True)
+        self.model = AutoModel.from_pretrained(path, device_map='auto', trust_remote_code=True)
+        self.model = self.model.eval()
+
+    def invoke(self, text):
+        response, history = self.model.chat(self.tokenizer, text, history=[])
+        print(response)
+        return response
+    
+    def embedding_invoke(self, text) -> np.ndarray:
+        pass
