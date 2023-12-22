@@ -1,7 +1,6 @@
-prompt = "给定一些相关的记忆，请回答一个问题。\n" \
-            "记忆：\n"
-prompt += related_statements
-prompt += "\n问题:\n"
-prompt += topic
-prompt += "请确定一个主要insight来回答上述问题，同时指定insight来自哪些记忆。请严格遵循以下格式：insight的内容\n相关记忆。" \
-        "（insight可以从多个记忆中派生得出。insight需要在句子结构和内容上与陈述有很大不同。）"
+给定一组记忆，请根据记忆回答一个问题。
+记忆：
+{<related_memories>}
+问题：
+{<topic>}
+请确定一个主要的insight来回答上述问题，并且指定insight来自哪些记忆。

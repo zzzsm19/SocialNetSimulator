@@ -19,33 +19,35 @@ class SocialNetAgent:
         self.memory.add_memory(observation, cur_time)
 
     def generate_post(self, cur_time: datetime):
-        logger.info("agent %d generate a post" % self.user_prof["id"])
+        logger.info("agent %s generate a post" % self.user_prof["id"])
         # When generating a post, the agent will decide what to post
         prompt_template_path = "llm/prompt_template/post_generation.txt"
         prompt_input = self.user_prof.copy()
         prompt_input["token_limit"] = 150
         retrieved_memories = self.memory.retrive_memories("", cur_time)
-        prompt_input["memories"] = '\n'.join([memory["text"] for memory in retrieved_memories])
+        prompt_input["memories"] = '\n'.join(["[%d] %s" % (idx, memory["text"]) for idx, memory in enumerate(retrieved_memories)])
         prompt = get_prompt(prompt_template_path, prompt_input)
-        logger.debug("Generate post Prompt: " + prompt)
         response = self.llm.invoke(prompt)
         post = self.llm.parse_response(response)
+        logger.info(prompt + "\n\n" + post)
+        # logger.debug(prompt + "\n\n" + post)
         observation = "我在社交平台上发布了一篇文章，文章内容是：" + post # what idea driving the post generation  todo
         self.add_to_memory(observation, cur_time)
         return post
 
     def react_to_post(self, msg, cur_time: datetime):
-        logger.info("agent %d react to a post recieved from agent %d" % (self.user_prof["id"], msg["agent_id"]))
+        logger.info("agent %s react to a post recieved from agent %s" % (self.user_prof["id"], msg["agent_id"]))
         # When recieving a message, the agent will decide how to react
         prompt_template_path = "llm/prompt_template/react_to_post.txt"
         prompt_input = self.user_prof.copy()
         prompt_input["post_content"] = msg["post_content"]
         retrieved_memories = self.memory.retrive_memories("我看到了一篇文章，文章内容是" + msg["post_content"], \
                                                                 cur_time)
-        prompt_input["memories"] = '\n'.join([memory["text"] for memory in retrieved_memories])
+        prompt_input["memories"] = '\n'.join(["[%d] %s" % (idx, memory["text"]) for idx, memory in enumerate(retrieved_memories)])
         prompt = get_prompt(prompt_template_path, prompt_input)
-        logger.debug("React to post Prompt: " + prompt)
         result = self.llm.invoke(prompt)
+        logger.info(prompt + "\n\n" + result)
+        # logger.debug(prompt + "\n\n" + result)
         # parse the result of llm
         if "不感兴趣" in result:
             observation = "我阅读了一篇来自我的关注者——" + msg["post_author"] + "的文章。" \
@@ -66,3 +68,16 @@ class SocialNetAgent:
                 "repost": "转发" in result
             }
             return react
+        
+    def reset(self):
+        self.memory.clear()
+        
+    def save_to_dict(self):
+        return {
+            "user_prof": self.user_prof,
+            "memory": self.memory.save_to_dict()
+        }
+    
+    def load_from_dict(self, agent_dict):
+        self.user_prof = agent_dict["user_prof"]
+        self.memory.load_from_dict(agent_dict["memory"])

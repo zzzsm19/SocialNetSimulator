@@ -9,3 +9,8 @@ dataset/*
 env/
 
 **/__pycache__/
+
+logs/
+
+legacy/
+

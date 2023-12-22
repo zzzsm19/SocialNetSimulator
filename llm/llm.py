@@ -1,8 +1,10 @@
+import os
 import torch
 import numpy as np
 import logging
 import zhipuai
-import openai
+from typing import List
+from openai import OpenAI
 from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM, pipeline
 
 zhipuai.api_key = "78a2dfa223061c83018dd3e89b4b09ed.hF7ap5HXcXE8qtMp"
@@ -12,7 +14,7 @@ logger = logging.getLogger("MyLogger")
 
 class LLM():
     def __init__(self):
-        raise NotImplementedError
+        pass
 
     def invoke(self, prompt):
         raise NotImplementedError
@@ -20,7 +22,7 @@ class LLM():
     def async_invoke(self, prompt):
         raise NotImplementedError
     
-    def embedding_invoke(self, text) -> np.ndarray:
+    def embedding_invoke(self, text) -> List[float]:
         raise NotImplementedError
     
     def embedding_async_invoke(self, text):
@@ -31,8 +33,40 @@ class LLM():
         raise NotImplementedError
 
 
+class OpenAi(LLM):
+    def __init__(self, api_key: str = None): # api_key stored in env
+        self.client = OpenAI()
+    
+    def invoke(self, prompt):
+        try:
+            completion = self.client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            return completion.model_dump()["choices"][0]["message"]["content"]
+        except Exception as e:
+            logger.error(e)
+            return ""
+    
+    def embedding_invoke(self, text) -> List[float]:
+        try:
+            embedding = self.client.embeddings.create(
+                model="text-embedding-ada-002",
+                input=[text]
+            )
+            return embedding.model_dump()["data"][0]["embedding"]
+        except Exception as e:
+            logger.error(e)
+            return []
+
+    def parse_response(self, response):
+        return response
+
+
 class ZhipuAi(LLM):
-    def __init__(self, api_key):
+    def __init__(self, api_key: str):
         self.turbo_model = "chatglm_turbo"
         self.embedding_model = "text_embedding"
 
@@ -101,7 +135,7 @@ class ZhipuAi(LLM):
             }
         }
         try:
-            logger.debug(response)
+            logger.error(response)
             if response["code"] != 200:
                 logging.error("Error in invoking LLM: " + response["msg"])
                 return None
@@ -134,7 +168,7 @@ class ZhipuAi(LLM):
 
 
 class Llama2(LLM):
-    def __init__(self, path):
+    def __init__(self, path: str):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model = AutoModelForCausalLM.from_pretrained(path, device_map='auto')
         self.tokenizer = AutoTokenizer.from_pretrained(path, device_map='auto')
@@ -186,7 +220,7 @@ class Llama2(LLM):
         print(result)
         return self.parse_response(result)
 
-    def embedding_invoke(self, text) -> np.ndarray:
+    def embedding_invoke(self, text):
         input_ids = self.tokenizer(text, return_tensors="pt")
         last_hidden_state = self.model(**input_ids, output_hidden_states=True).hidden_states[-1]
         weights_for_non_padding = input_ids.attention_mask * torch.arange(start=1, end=last_hidden_state.shape[1] + 1).unsqueeze(0)
@@ -203,7 +237,7 @@ class Llama2(LLM):
 
 
 class ChatGlm3(LLM):
-    def __init__(self, path):
+    def __init__(self, path: str):
         self.tokenizer = AutoTokenizer.from_pretrained(path, device_map='auto', trust_remote_code=True)
         self.model = AutoModel.from_pretrained(path, device_map='auto', trust_remote_code=True)
         self.model = self.model.eval()
@@ -213,5 +247,5 @@ class ChatGlm3(LLM):
         print(response)
         return response
     
-    def embedding_invoke(self, text) -> np.ndarray:
+    def embedding_invoke(self, text):
         pass

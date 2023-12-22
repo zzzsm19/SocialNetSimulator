@@ -17,9 +17,8 @@ def score_memory_importance(memory: str, llm: LLM) -> float:
     prompt = get_prompt(prompt_path, {
         "memory": memory
     })
-    logger.debug(prompt)
     result = llm.invoke(prompt).strip()
-    logger.debug(result)
+    logger.debug(prompt + "\n\n" + result)
     match = re.search(r"^\D*(\d+)", result)
     if match:
         return float(match.group(1)) / 10
@@ -46,18 +45,20 @@ class MemoryRetriever():
             importance * self.importance_weight
 
     def get_relevant_memories(self, query: str, memories: List[dict], now: datetime, top_n: int = 0) -> List[dict]:
+        if len(memories) == 0:
+            return []
         top_n = top_n if not top_n == 0 else self.top_n # if top_n isn't given, set it to self.top_n
-        query_embedding = self.llm.embedding_invoke(query)
         if query: # sort with query
+            query_embedding = self.llm.embedding_invoke(query)
             docs = [
                 (memory, \
-                 self.get_combined_score(get_cosine_similarity(query_embedding, memory["embedding"]), memory["importance"], memory["last_access_time"]))
+                 self.get_combined_score(get_cosine_similarity(query_embedding, memory["embedding"]), memory["importance"], memory["last_access_time"], now))
                 for memory in memories if memory["text"] != "[FORGET]"
             ]
         else: # sort without query
             docs = [
                 (memory, \
-                 self.get_combined_score(0, memory["importance"], memory["last_access_time"]))
+                 self.get_combined_score(0, memory["importance"], memory["last_access_time"], now))
                 for memory in memories if memory["text"] != "[FORGET]"
             ]
         docs.sort(key=lambda x: x[1], reverse=True)
@@ -100,16 +101,20 @@ class SensoryMemory():
             "sensory_memories": '\n'.join(["[%d] %s" % (ind, obs) for ind, obs in enumerate(self.buffer)])
         }
         prompt = get_prompt(prompt_path, prompt_input)
-        logger.debug(prompt)
         result = self.llm.invoke(prompt).strip()
         # TODO parse the result
-        logger.debug(result)
+        logger.debug(prompt + "\n\n" + result)
         stm_memories = [{
             "text": result,
             "importance": score_memory_importance(result, self.llm),
         }]
         self.clear()
         return stm_memories
+    
+    def save_to_dict(self):
+        return {
+            "buffer": self.buffer
+        }
 
 
 class ShortTermMemory():
@@ -182,9 +187,8 @@ class ShortTermMemory():
             "stm_memories": '\n'.join("[%d] %s" % (ind, mem) for ind, mem in enumerate(memories_text))
         }
         prompt = get_prompt(prompt_path, prompt_input)
-        logger.debug(prompt)
         result = self.llm.invoke(prompt).strip()
-        logger.debug(result)
+        logger.debug(prompt + "\n\n" + result)
         # TODO parse the result
         return [result]
 
@@ -213,6 +217,26 @@ class ShortTermMemory():
         self.short_memories.clear()
         self.enhance_cnts.clear()
         self.enhance_memory_texts.clear()
+
+    def save_to_dict(self, with_embedding: bool = True):
+        if with_embedding:
+            return {
+                "short_memories": self.short_memories,
+                "enhance_cnts": self.enhance_cnts,
+                "enhance_memory_texts": self.enhance_memory_texts
+            }
+        else:
+            return {
+                "short_memories": [
+                    {
+                        "text": memory["text"],
+                        "importance": memory["importance"]
+                    }
+                    for memory in self.short_memories
+                ],
+                "enhance_cnts": self.enhance_cnts,
+                "enhance_memory_texts": self.enhance_memory_texts
+            }
 
 
 class LongTermMemory():
@@ -251,9 +275,8 @@ class LongTermMemory():
             "memories": "\n".join(["%d. " % idx + memory["text"] for idx, memory in enumerate(memories)])
         }
         prompt = get_prompt(prompt_path, prompt_input)
-        logger.debug(prompt)
         result = self.llm.invoke(prompt).strip()
-        logger.debug(result)
+        logger.debug(prompt + "\n\n" + result)
         # TODO parse the result
         return [result]
 
@@ -265,9 +288,8 @@ class LongTermMemory():
         }
         prompt = get_prompt(prompt_path, prompt_input)
 
-        logger.debug(prompt)
         result = self.llm.invoke(prompt).strip()
-        logger.debug(result)
+        logger.debug(prompt + "\n\n" + result)
         
         return [result]
 
@@ -321,6 +343,33 @@ class LongTermMemory():
     def clear(self) -> None:
         self.long_memories.clear()
 
+    def save_to_dict(self, with_embedding: bool = True):
+        if with_embedding:
+            return {
+                "long_memories": [
+                    {
+                        "text": memory["text"],
+                        "importance": memory["importance"],
+                        "embedding": memory["embedding"],
+                        "last_access_time": memory["last_access_time"].strftime("%Y-%m-%d %H:%M:%S")
+                    }
+                    for memory in self.long_memories
+                ],
+                "aggregate_importance": self.aggregate_importance
+            }
+        else:
+            return {
+                "long_memories": [
+                    {
+                        "text": memory["text"],
+                        "importance": memory["importance"],
+                        "last_access_time": memory["last_access_time"].strftime("%Y-%m-%d %H:%M:%S")
+                    }
+                    for memory in self.long_memories
+                ],
+                "aggregate_importance": self.aggregate_importance
+            }
+
 
 class WorkingMemory():
     pass
@@ -352,3 +401,27 @@ class AgentMemory():
         self.sensoryMemory.clear()
         self.shortTermMemory.clear()
         self.longTermMemory.clear()
+
+    def save_to_dict(self, with_embedding: bool = True):
+        return {
+            "sensoryMemory": self.sensoryMemory.save_to_dict(),
+            "shortTermMemory": self.shortTermMemory.save_to_dict(with_embedding=with_embedding),
+            "longTermMemory": self.longTermMemory.save_to_dict(with_embedding=with_embedding)
+        }
+    
+    def load_from_dict(self, memory_dict: dict) -> None:
+        self.sensoryMemory.buffer = memory_dict["sensoryMemory"]["buffer"]
+        self.shortTermMemory.short_memories = memory_dict["shortTermMemory"]["short_memories"]
+        self.shortTermMemory.enhance_cnts = memory_dict["shortTermMemory"]["enhance_cnts"]
+        self.shortTermMemory.enhance_memory_texts = memory_dict["shortTermMemory"]["enhance_memory_texts"]
+        self.longTermMemory.long_memories = [
+            {
+                "text": memory["text"],
+                "importance": memory["importance"],
+                "embedding": memory["embedding"],
+                "last_access_time": datetime.strptime(memory["last_access_time"], "%Y-%m-%d %H:%M:%S")
+            }
+            for memory in memory_dict["longTermMemory"]["long_memories"]
+        ]
+        self.longTermMemory.aggregate_importance = memory_dict["longTermMemory"]["aggregate_importance"]
+
