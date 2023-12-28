@@ -1,6 +1,6 @@
 
 # llm
-llm: openai
+llm: zhipuai
 zhipuai_api_key: 78a2dfa223061c83018dd3e89b4b09ed.hF7ap5HXcXE8qtMp
 llama2_model_path: /data1/xubingbing/LLM/LLM-Project/chinese-llama-2-7b-hf
 chatglm3_model_path: /data1/xubingbing/LLM/chatglm3-6b
@@ -8,6 +8,9 @@ chatglm3_model_path: /data1/xubingbing/LLM/chatglm3-6b
 # data
 user_path: dataset/extracted/user_profile.txt
 network_path: dataset/extracted/follower_network.txt
+word_table_path: dataset/weibo_data/weibocontents/WordTable.txt
+content_path: dataset/weibo_data/root_content.txt
+post_time_path: dataset/weibo_data/total.txt
 
 # simulator
 round_num: 3

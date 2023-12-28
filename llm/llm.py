@@ -1,4 +1,5 @@
 import os
+os.environ["OPENAI_API_KEY"] = "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"
 import torch
 import numpy as np
 import logging
@@ -6,6 +7,9 @@ import zhipuai
 from typing import List
 from openai import OpenAI
 from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM, pipeline
+# from dotenv import load_dotenv
+# load_dotenv('.env')
+
 
 zhipuai.api_key = "78a2dfa223061c83018dd3e89b4b09ed.hF7ap5HXcXE8qtMp"
 

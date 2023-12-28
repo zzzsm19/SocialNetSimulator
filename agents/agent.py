@@ -46,6 +46,8 @@ class SocialNetAgent:
         prompt_input["memories"] = '\n'.join(["[%d] %s" % (idx, memory["text"]) for idx, memory in enumerate(retrieved_memories)])
         prompt = get_prompt(prompt_template_path, prompt_input)
         result = self.llm.invoke(prompt)
+        print(self.llm.embedding_invoke(result)["data"]['embedding'])
+        print(np.array(self.llm.embedding_invoke(result)["data"]['embedding']).shape)
         logger.info(prompt + "\n\n" + result)
         # logger.debug(prompt + "\n\n" + result)
         # parse the result of llm
@@ -69,6 +71,18 @@ class SocialNetAgent:
             }
             return react
         
+    def get_introduction(self, last_k):
+        prompt_path = "llm/prompt_template/get_user_introduction.txt"
+        prompt_input = self.user_prof.copy()
+        memories = self.memory.longTermMemory.long_memories[last_k:]
+        prompt_input["memories"] = '\n'.join([memory["test"] for memory in memories])
+        prompt = get_prompt(prompt_path, prompt_input)
+        logger.debug(prompt)
+        result = self.llm.invoke(prompt)
+        # result = self.llm.embedding_invoke(prompt)
+        logger.debug(result)
+        return result
+
     def reset(self):
         self.memory.clear()
         

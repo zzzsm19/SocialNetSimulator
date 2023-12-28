@@ -147,7 +147,10 @@ class ShortTermMemory():
 
         primacy_const = 0.1
         for idx, memory in enumerate(self.short_memories):
-            similarity = get_cosine_similarity(memory_embedding, memory["embedding"])
+            print('haha')
+            print(memory_embedding)
+            print(memory["embedding"])
+            similarity = get_cosine_similarity(memory_embedding['data']['embedding'], memory["embedding"]['data']['embedding'])
             if idx + 1 == len(self.short_memories): # primacy effect
                 similarity = min(similarity + primacy_const, 1.0)
             enhance_prob = 1 / (1 + np.exp(-similarity))

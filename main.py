@@ -14,6 +14,7 @@ from agents.agent import SocialNetAgent
 from llm.llm import *
 from utils.interval import *
 # from recommender.recommender import Recommender
+from environment.info_flow import feed_flow
 
 logger = logging.getLogger("MyLogger")
 logger.setLevel(logging.DEBUG)
@@ -48,12 +49,15 @@ class Simulator():
         } for i in range(config["round_num"])]
         self.id2agent_log: Dict[str, dict] = dict()
         self.agent_logs: List[dict] = []
-        self.recommender = None
+        # self.recommender = None
+        self.environment = None
+
 
         # init
         self.load_data()
         self.load_agents()
-        self.create_recommender()
+        self.create_environment()
+        # self.create_recommender()
         
         # load checkpoint
         if config["load_checkpoint"]:
@@ -64,6 +68,8 @@ class Simulator():
         self.data.load_users()
         self.data.load_network()
         # self.data.plot_network()
+        # self.data.load_post_time()
+        # self.data.load_content()
 
     def load_agents(self):
         if self.config["llm"] == "zhipuai":
@@ -90,29 +96,149 @@ class Simulator():
         } for agent in self.agents]
         self.id2agent_log = {agent_log["agent_id"]: agent_log for agent_log in self.agent_logs}
 
-    def create_recommender(self):
-        pass
+    # def create_recommender(self):
+    #     if self.config["llm"] == "zhipuai":
+    #         llm = ZhipuAi(self.config["zhipuai_api_key"])
+    #     elif self.config["llm"] == "llama2":
+    #         llm = Llama2(self.config["llama2_model_path"])
+    #     elif self.config["llm"] == "chatglm3":
+    #         llm = ChatGlm3(self.config["chatglm3_model_path"])
+    #     elif self.config["llm"] == "openai":
+    #         llm = OpenAi()
+    #     self.recommender = Recommender(self.config, self.data, llm)
+
+
+    def create_environment(self):
+        if self.config["llm"] == "zhipuai":
+            llm = ZhipuAi(self.config["zhipuai_api_key"])
+        elif self.config["llm"] == "llama2":
+            llm = Llama2(self.config["llama2_model_path"])
+        elif self.config["llm"] == "chatglm3":
+            llm = ChatGlm3(self.config["chatglm3_model_path"])
+        elif self.config["llm"] == "openai":
+            llm = OpenAi()
+        self.environment = feed_flow(self.config, self.data, llm)
+        self.environment.init_database()
+
+
+    # def run_round(self, round_cnt):
+    #     logger.info("Round %d: %s", round_cnt, format_time(self.cur_time))
+    #
+    #     # messages from last round
+    #     msgs = self.logs[round_cnt - 1]["log_content"] if round_cnt > 0 else [{"type": "post", "agent_id": '25', "origin_agent_id": '25', "post_author": "Stig", "post_content": "社交网络模拟，启动！", "time": self.cur_time}]
+    #     # all agents receive messages and react to posts and reposts
+    #     print(self.data.network)
+    #     for msg in msgs[:2]:
+    #         if msg["type"] != "post" and msg["type"] != "repost":
+    #             continue
+    #         agent_id = msg["agent_id"]
+    #         for neibor_agent_id in self.data.network[agent_id][:2]:
+    #             logger.info("agent %s recieve msg from agent %s"%(neibor_agent_id, agent_id))
+    #             neibor_agent = self.id2agent[neibor_agent_id]
+    #             react = neibor_agent.react_to_post(msg, self.cur_time)
+    #             # agent_logs
+    #             self.id2agent_log[neibor_agent_id]["log"].append("recieve a post from agent %s: %s" % (agent_id, msg["post_content"]))
+    #             if react["repost"]:
+    #                 new_msg = {
+    #                     "type": "repost",
+    #                     "agent_id": neibor_agent.user_prof["id"],
+    #                     "origin_agent_id": msg["origin_agent_id"],
+    #                     "post_author": msg["post_author"],
+    #                     "post_content": msg["post_content"],
+    #                     "time": self.cur_time.strftime("%Y-%m-%d %H:%M:%S"),
+    #                 }
+    #                 self.logs[round_cnt]["log_num"] += 1
+    #                 self.logs[round_cnt]["log_content"].append(new_msg)
+    #                 # agent_logs
+    #                 self.id2agent_log[neibor_agent_id]["log"].append("repost the post.")
+    #             if react["follow"]:
+    #                 pass # must have followed before
+    #             # save agent log
+    #             self.id2agent_log[neibor_agent_id]["memory"] = neibor_agent.memory.save_to_dict(with_embedding=False)
+    #             with open(os.path.join(self.agents_folder, neibor_agent_id + ".json"), "w") as f:
+    #                 f.write(json.dumps(self.id2agent_log[neibor_agent_id], indent=4, ensure_ascii=False).encode("utf-8").decode("utf-8"))
+    #
+    #         # recommend system recommend posts to agents
+    #     for agent in self.agents[:2]:
+    #         # print('why')
+    #         sorted_content = self.recommender.get_full_sort_items(agent, -1)
+    #         for msg in sorted_content:
+    #             logger.info("agent %s receives msg from agent %s in recommender. The msg: %s" % (agent.user_prof["id"], msg["agent_id"], msg["post_content"]))
+    #             react = agent.react_to_post(msg, self.cur_time)
+    #             if react["repost"]:
+    #                 new_msg = {
+    #                     "type": "repost",
+    #                     "agent_id": agent.user_prof["id"],
+    #                     "origin_agent_id": msg["origin_agent_id"],
+    #                     "post_author": msg["post_author"],
+    #                     "post_content": msg["post_content"],
+    #                     "time": self.cur_time
+    #                 }
+    #                 self.logs[round_cnt]["log_num"] += 1
+    #                 self.logs[round_cnt]["log_content"].append(new_msg)
+    #             if react["follow"]:
+    #                 pass
+    #
+    # # random sample some agents to generate posts
+    #     followers_count_sum = np.array([agent.user_prof["followers_count"] for agent in self.agents]).sum()
+    #     sample_weights = np.array([agent.user_prof["followers_count"] for agent in self.agents]) / followers_count_sum
+    #     sampled_agent_ids = np.random.choice([agent.user_prof["id"] for agent in self.agents], size=random.randint(int(len(self.agents) * self.config["sample_rate_low"]), int(len(self.agents) * self.config["sample_rate_high"])), p=sample_weights, replace=False)
+    #     logger.info("%d sampled agents: " % len(sampled_agent_ids) + ",".join(sampled_agent_ids))
+    #     for agent_id in sampled_agent_ids[:2]:
+    #         agent = self.id2agent[agent_id]
+    #         post = agent.generate_post(self.cur_time)
+    #         msg = {
+    #             "type": "post",
+    #             "agent_id": agent.user_prof["id"],
+    #             "origin_agent_id": agent.user_prof["id"], # the original author of this post
+    #             "post_author": agent.user_prof["name"],
+    #             "post_content": post,
+    #             "time": self.cur_time.strftime("%Y-%m-%d %H:%M:%S"),
+    #         }
+    #         self.logs[round_cnt]["log_num"] += 1
+    #         self.logs[round_cnt]["log_content"].append(msg)
+    #         # agent_logs
+    #         self.id2agent_log[agent_id]["log"].append("generate a post:" + post)
+    #         self.id2agent_log[agent_id]["memory"] = agent.memory.save_to_dict(with_embedding=False)
+    #         # save agent log
+    #         with open(os.path.join(self.agents_folder, agent_id + ".json"), "w") as f:
+    #             f.write(json.dumps(self.id2agent_log[agent_id], indent=4, ensure_ascii=False).encode("utf-8").decode("utf-8"))
+    #
+    #     for i in range(len(self.logs[round_cnt]["log_content"])):
+    #         print('xixi')
+    #         print(self.data.simulated_content)
+    #         print(self.logs[round_cnt]["log_content"][i])
+    #         if self.logs[round_cnt]["log_content"][i]["type"] == "post":
+    #             self.data.simulated_content.append(self.logs[round_cnt]["log_content"][i])
+    #
+    #     self.cur_time = add_interval(self.cur_time, self.interval) # time goes by
+    #     logger.debug(self.logs[round_cnt])
+
 
     def run_round(self, round_cnt):
         logger.info("Round %d: %s", round_cnt, format_time(self.cur_time))
 
-        # messages from last round
-        msgs = self.logs[round_cnt - 1]["log_content"] if round_cnt > 0 else []
-        # all agents receive messages and react to posts and reposts
-        for msg in msgs:
-            if msg["type"] != "post" and msg["type"] != "repost":
-                continue
-            agent_id = msg["agent_id"]
-            for neibor_agent_id in self.data.network[agent_id]:
-                logger.info("agent %s recieve msg from agent %s"%(neibor_agent_id, agent_id))
-                neibor_agent = self.id2agent[neibor_agent_id]
-                react = neibor_agent.react_to_post(msg, self.cur_time)
-                # agent_logs
-                self.id2agent_log[neibor_agent_id]["log"].append("recieve a post from agent %s: %s" % (agent_id, msg["post_content"]))
+
+        for agent in self.agents[:3]:
+            rec_content, follow_content = self.environment.get_all_info(agent)
+            rec_content_len = len(rec_content)
+            msgs = rec_content + follow_content
+            logger.info("all infos:")
+            logger.info(msgs)
+            for i,msg in enumerate(msgs):
+                if i == 0:
+                    logger.info("agent %s enters the recommender." % (agent.user_prof["id"]))
+                    logger.info(rec_content)
+                if i == rec_content_len:
+                    logger.info("agent %s enters the following list." % (agent.user_prof["id"]))
+                    logger.info(follow_content)
+                logger.info("agent %s recieve msg from agent %s" % (agent.user_prof["id"], msg["agent_id"]))
+                react = agent.react_to_post(msg, self.cur_time)
+                self.id2agent_log[agent.user_prof["id"]]["log"].append("recieve a post from agent %s: %s" % (msg["agent_id"], msg["post_content"]))
                 if react["repost"]:
                     new_msg = {
                         "type": "repost",
-                        "agent_id": neibor_agent.user_prof["id"],
+                        "agent_id": agent.user_prof["id"],
                         "origin_agent_id": msg["origin_agent_id"],
                         "post_author": msg["post_author"],
                         "post_content": msg["post_content"],
@@ -121,24 +247,20 @@ class Simulator():
                     self.logs[round_cnt]["log_num"] += 1
                     self.logs[round_cnt]["log_content"].append(new_msg)
                     # agent_logs
-                    self.id2agent_log[neibor_agent_id]["log"].append("repost the post.")
+                    self.id2agent_log[agent.user_prof["id"]]["log"].append("repost the post.")
                 if react["follow"]:
                     pass # must have followed before
                 # save agent log
-                self.id2agent_log[neibor_agent_id]["memory"] = neibor_agent.memory.save_to_dict(with_embedding=False)
-                with open(os.path.join(self.agents_folder, neibor_agent_id + ".json"), "w") as f:
-                    f.write(json.dumps(self.id2agent_log[neibor_agent_id], indent=4, ensure_ascii=False).encode("utf-8").decode("utf-8"))
+                self.id2agent_log[agent.user_prof["id"]]["memory"] = agent.memory.save_to_dict(with_embedding=False)
+                with open(os.path.join(self.agents_folder, agent.user_prof["id"] + ".json"), "w") as f:
+                    f.write(json.dumps(self.id2agent_log[agent.user_prof["id"]], indent=4, ensure_ascii=False).encode("utf-8").decode("utf-8"))
 
-        # recommend system recommend posts to agents
-        for agent in self.agents:
-            pass
-
-        # random sample some agents to generate posts
+    # random sample some agents to generate posts
         followers_count_sum = np.array([agent.user_prof["followers_count"] for agent in self.agents]).sum()
         sample_weights = np.array([agent.user_prof["followers_count"] for agent in self.agents]) / followers_count_sum
         sampled_agent_ids = np.random.choice([agent.user_prof["id"] for agent in self.agents], size=random.randint(int(len(self.agents) * self.config["sample_rate_low"]), int(len(self.agents) * self.config["sample_rate_high"])), p=sample_weights, replace=False)
         logger.info("%d sampled agents: " % len(sampled_agent_ids) + ",".join(sampled_agent_ids))
-        for agent_id in sampled_agent_ids:
+        for agent_id in sampled_agent_ids[:2]:
             agent = self.id2agent[agent_id]
             post = agent.generate_post(self.cur_time)
             msg = {
@@ -158,8 +280,17 @@ class Simulator():
             with open(os.path.join(self.agents_folder, agent_id + ".json"), "w") as f:
                 f.write(json.dumps(self.id2agent_log[agent_id], indent=4, ensure_ascii=False).encode("utf-8").decode("utf-8"))
 
+        for i in range(len(self.logs[round_cnt]["log_content"])):
+            print('xixi')
+            print(self.logs[round_cnt]["log_content"][i])
+            if self.logs[round_cnt]["log_content"][i]["type"] == "post" or self.logs[round_cnt]["log_content"][i]["type"] == "repost":
+                # self.data.simulated_content.append(self.logs[round_cnt]["log_content"][i])
+                self.environment.database[int(self.logs[round_cnt]["log_content"][i]["agent_id"]) - 1].append(self.logs[round_cnt]["log_content"][i])
+
         self.cur_time = add_interval(self.cur_time, self.interval) # time goes by
         logger.debug(self.logs[round_cnt])
+
+
 
     def run(self):
         # reset log file
@@ -249,4 +380,6 @@ def main():
 
 
 if __name__ == "__main__":
+    a = [np.array([1,1,1]), np.array([2,2,2])]
+    print(np.stack(a, 0))
     main()
