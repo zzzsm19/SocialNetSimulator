@@ -1,0 +1,7 @@
+给定一条帖子的信息简介，请用一句话对该帖子进行总结。
+类型：{<type>}
+目前发帖人:{<agent_id>}
+原始发帖人：{<origin_agent_id>}
+发帖作者：{<post_author>}
+帖子内容：{<post_content>}
+回答：
